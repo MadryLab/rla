@@ -1,0 +1,35 @@
+training:
+  num_workers: 10
+  batch_size: 20
+  exp_name: ''
+  epochs: 75
+  lr: 0.001
+  weight_decay: 0.1 # 0.01 for training from scratch best result
+  momentum: 0.9
+  lr_scheduler: cosine
+  opt: ADAM
+  lr_peak_epoch: 10
+  label_smoothing: 0.0
+  disable_logging: False
+  data_root: /mnt/cfs/projects/proteins/datasets/
+  only_non_bn_weight_decay: False
+  mixed_precision: 1
+  self_supervised: 1
+  max_seq_len: 1024
+  burn_in: 30
+logging:
+  do_if_complete: False
+  mmap_logdir: ""
+model:
+  arch: "facebook/esm2_t6_8M_UR50D"
+  coordinator_hparams: "terminator_configs/coordinator.json"
+  gnn_checkpoint: "/mnt/cfs/projects/proteins/models/multichain_coordinator/net_best_checkpoint.pt"
+data:
+    train_wds_path: wds/train_wds_multichain.tar
+    val_wds_path: wds/val_wds_multichain.tar
+    use_webdataset: 1
+    data_path: keating_multichain.h5
+distributed:
+  distributed: 0
+  world_size: 1
+  address: localhost

@@ -1,0 +1,6 @@
+fasstdb=/home/grigoryanlab/library/databases/dTERMen.databases/2019-01-22/dtermen.sim
+rotlib=/home/ifs-users/swans/MST_workspace/MST/testfiles/rotlib.bin
+efun=35
+selfCorrMaxCliqueSize=1
+selfResidualLims = 200 500
+pairLims = 400 500

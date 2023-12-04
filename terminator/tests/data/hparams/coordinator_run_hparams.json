@@ -1,0 +1,1 @@
+{"train_batch_size": null, "shuffle": false, "semi_shuffle": true, "sort_data": false, "max_term_res": null, "max_seq_tokens": 6000}

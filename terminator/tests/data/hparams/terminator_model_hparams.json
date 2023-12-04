@@ -1,0 +1,1 @@
+{"cov_features": "all_raw", "cov_compress": "ffn", "term_use_mpnn": true, "matches": "ablate", "energies_use_mpnn": true, "energies_full_graph": true, "contact_idx": true, "energies_encoder_layers": 3, "energies_hidden_dim": 128, "use_terms": true}

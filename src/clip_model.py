@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
-from transformers import EsmTokenizer, EsmModel
 from terminator.models.TERMinator import TERMinator
-import time
+from transformers import EsmModel
 import math
 
 TEXT_EMB_DIMS = {
@@ -76,8 +75,9 @@ class ProteinCLIP(nn.Module):
         self.esm_arch = esm_arch
         self.terminator_hparams = terminator_hparams
         gnn_emb_dim = terminator_hparams['energies_hidden_dim']
-        text_emb_dim = TEXT_EMB_DIMS[esm_arch]
+        text_emb_dim = TEXT_EMB_DIMS[esm_arch]    
         self.text_model = EsmModel.from_pretrained(esm_arch) 
+
         self.gnn_model = TERMinator(hparams=terminator_hparams)
         if gnn_checkpoint is not None:
             print("loading pretrained gnn", gnn_checkpoint)

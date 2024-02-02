@@ -31,23 +31,23 @@ def _unwrap_ddp_model(state_dict):
         new_state_dict[k] = v
     return new_state_dict
 
-def load_model(path, device, coordinator_checkpoint=None, model=None, load_state_dict=True):
+def load_model(path, esm_arch, device, coordinator_checkpoint=None, model=None, load_state_dict=True):
     print("loading state dict from", path)
     ckpt = torch.load(path)
     if model is None: # build based on path
         print("building model based on path")
         model_building_args = ckpt['run_metadata']['model_building_args']
-        model = create_clip_model(model_building_args, device=device, coordinator_checkpoint=coordinator_checkpoint)
+        model = create_clip_model(esm_arch, model_building_args, device=device, coordinator_checkpoint=coordinator_checkpoint)
     if load_state_dict:
         state_dict = _unwrap_ddp_model(ckpt['state_dict'])
         model.load_state_dict(state_dict)
     print(ckpt['run_metadata'])
     return model
 
-def create_clip_model(model_building_args, device, coordinator_checkpoint=None):
+def create_clip_model(esm_arch, model_building_args, device, coordinator_checkpoint=None):
     if coordinator_checkpoint is not None:
         model_building_args['gnn_checkpoint'] = coordinator_checkpoint
-    model = ProteinCLIP(esm_arch=model_building_args['esm_arch'], 
+    model = ProteinCLIP(esm_arch=esm_arch, 
                         gnn_checkpoint=model_building_args['gnn_checkpoint'],
                         terminator_hparams=model_building_args['terminator_hparams'],
                         self_supervised=model_building_args['self_supervised'],

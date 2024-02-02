@@ -11,6 +11,8 @@ Model weights and data are available to download [here](https://www.dropbox.com/
 
 Example inference data are provided in the [example_data](example_data) folder. 
 
+To package a .pdf file into the WebDataset format that is most easily read by RLA, follow [this example](example_notebooks/example_data.ipynb).
+
 ## Inference
 
 Once the model weights folder is downloaded, the value of the `model_dir = /c/example/path` line in each example notebook must be changed to reflect the path to the weights. Additionally, if the computer you are running the notebook on is offline, the `args_dict['arch'] = '/c/example/path'` line must be changed to reflect the path to ESM-2 as downloaded by the [transformers](https://huggingface.co/docs/transformers/index) module. If your computer is online, the `args_dict['arch'] = '/c/example/path'` should be deleted.

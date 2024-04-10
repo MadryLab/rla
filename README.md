@@ -79,3 +79,7 @@ To train the model, use the `clip_main.py` script. For example
 ```
 python clip_main.py --config dataset_configs/full_pdb.yaml --training.exp_name experiment_name --model.coordinator_hparams terminator_configs/standard.json 
 ```
+
+## Funding
+
+This work was supported by NIH awards R01GM129007 and R35GM149227 to A.E.K.

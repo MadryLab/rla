@@ -72,15 +72,23 @@ def batchify(batched_flat_terms, term_lens):
     return batchify_terms
 
 # Extract kNN info
-def extract_knn(X, mask, eps, top_k):
+def extract_knn(X, mask, eps, top_k, cross_chain=True, chain_ids=None):
         # Convolutional network on NCHW
         mask_2D = torch.unsqueeze(mask, 1) * torch.unsqueeze(mask, 2)
         dX = torch.unsqueeze(X, 1) - torch.unsqueeze(X, 2)
         D = mask_2D * torch.sqrt(torch.sum(dX**2, 3) + eps)
 
         # Identify k nearest neighbors (including self)
+        if cross_chain:
+            chain_ids = chain_ids.unsqueeze(1) - chain_ids.unsqueeze(2)
+            cross_mask = chain_ids != 0
+            cross_mask[:,torch.arange(cross_mask.shape[1]), torch.arange(cross_mask.shape[2])] = True
+        else:
+            cross_mask = torch.ones_like(mask_2D)
         D_max, _ = torch.max(D, -1, keepdim=True)
-        D_adjust = D + (1. - mask_2D) * D_max
+        D_adjust = D + ((1. - mask_2D) + (1 - cross_mask.to(dtype=mask_2D.dtype))) * D_max
+        
+        top_k = min(top_k, D.shape[1])
         D_neighbors, E_idx = torch.topk(D_adjust, top_k, dim=-1, largest=False)
         return mask_2D, D_neighbors, E_idx
 

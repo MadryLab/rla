@@ -53,11 +53,14 @@ class NodeTransformerLayer(nn.Module):
         self.attention = NeighborAttention(num_hidden, num_in, num_heads)
         self.dense = PositionWiseFeedForward(num_hidden, num_hidden * 4)
 
-    def forward(self, h_V, h_E, mask_V=None, mask_attend=None):
+    def forward(self, h_V, h_E, mask_V=None, mask_attend=None, update=True):
         """ Parallel computation of full transformer layer """
         # Self-attention
         dh = self.attention(h_V, h_E, mask_attend)
-        h_V = self.norm[0](h_V + self.dropout(dh))
+        if update:
+            h_V = self.norm[0](h_V + self.dropout(dh))
+        else:
+            h_V = self.norm[0](self.dropout(dh))
 
         # Position-wise feedforward
         dh = self.dense(h_V)
@@ -111,7 +114,6 @@ class EdgeTransformerLayer(nn.Module):
             mask_E = mask_E.unsqueeze(-1).unsqueeze(-1)
             h_E = mask_E * h_E
         return h_E
-
 
 class NodeMPNNLayer(nn.Module):
     def __init__(self, num_hidden, num_in, dropout=0.1, num_heads=None, scale=30):
@@ -189,6 +191,36 @@ class EdgeMPNNLayer(nn.Module):
             h_E = mask_E * h_E
         return h_E
 
+class TNodeMPNNLayer(nn.Module):
+    def __init__(self, num_hidden, dropout=0.1, num_heads=None):
+        super().__init__()
+        del num_heads
+        self.num_hidden = num_hidden
+        self.dropout = nn.Dropout(dropout)
+        self.norm = nn.ModuleList([Normalize(num_hidden) for _ in range(2)])
+
+        self.W1 = nn.Linear(num_hidden, num_hidden, bias=True)
+        self.W2 = nn.Linear(num_hidden, num_hidden, bias=True)
+        self.W3 = nn.Linear(num_hidden, num_hidden, bias=True)
+
+        self.dense = PositionWiseFeedForward(num_hidden, num_hidden * 4)
+
+    def forward(self, h_V, mask_V=None, mask_attend=None):
+        """ Parallel computation of full transformer layer """
+
+        # Concatenate h_V_i to h_E_ij
+        h_message = self.W3(F.relu(self.W2(F.relu(self.W1(h_V)))))
+        if mask_attend is not None:
+            h_message = mask_attend.unsqueeze(-1) * h_message
+        h_V = self.norm[0](h_V + self.dropout(h_message))
+        # Position-wise feedforward
+        dh = self.dense(h_V)
+        h_V = self.norm[1](h_V + self.dropout(dh))
+
+        if mask_V is not None:
+            mask_V = mask_V.unsqueeze(-1)
+            h_V = mask_V * h_V
+        return h_V[:,-1].unsqueeze(1)
 
 class NeighborAttention(nn.Module):
     def __init__(self, num_hidden, num_in, num_heads=4):

@@ -8,6 +8,7 @@ TEXT_EMB_DIMS = {
     'facebook/esm2_t30_150M_UR50D': 640,
     '/data1/groups/keating_madry/huggingface/esm2_t30_150M_UR50D': 640,
     'facebook/esm2_t6_8M_UR50D': 320,
+    '/home/fosterb/rla/esm_model_150': 640,
 }
 
 def gelu(x):
@@ -70,6 +71,8 @@ class ProteinCLIP(nn.Module):
                  freeze_text_proj=False,
                  lm_head_text=False,
                  lm_head_type='MLP',
+                 device='cuda:0',
+                 use_text_proj=True,
                  ):
         super().__init__()
         self.esm_arch = esm_arch
@@ -78,7 +81,7 @@ class ProteinCLIP(nn.Module):
         text_emb_dim = TEXT_EMB_DIMS[esm_arch]    
         self.text_model = EsmModel.from_pretrained(esm_arch) 
 
-        self.gnn_model = TERMinator(hparams=terminator_hparams)
+        self.gnn_model = TERMinator(hparams=terminator_hparams, device=device)
         if gnn_checkpoint is not None:
             print("loading pretrained gnn", gnn_checkpoint)
             gnn_state = transform_pretrained_gnn(torch.load(gnn_checkpoint)['state_dict'])
@@ -95,6 +98,8 @@ class ProteinCLIP(nn.Module):
         self.logit_scale = nn.Parameter(torch.ones([]) * 2.6592)
         self.self_supervised = self_supervised
         print("freeze_llm", freeze_llm)
+        print("use text proj: ", use_text_proj)
+        self.use_text_proj = use_text_proj
         self.freeze_llm = freeze_llm
         self.freeze_text_proj = freeze_text_proj
         if lm_head_text:
@@ -136,11 +141,14 @@ class ProteinCLIP(nn.Module):
             enc = self.get_avg(hidden_states, text_inp['attention_mask'])
             #enc = hidden_states[:, 0]
             
-        if self.freeze_text_proj:
-            with torch.no_grad():
+        if self.use_text_proj:
+            if self.freeze_text_proj:
+                with torch.no_grad():
+                    text_feats = self.text_projection(enc)
+            else:
                 text_feats = self.text_projection(enc)
         else:
-            text_feats = self.text_projection(enc)
+            text_feats = enc
         return text_feats
     
     def get_text_features_no_proj(self, text_inp):
@@ -155,7 +163,6 @@ class ProteinCLIP(nn.Module):
         else:
             enc = self.get_avg(hidden_states, text_inp['attention_mask'])
             #enc = hidden_states[:, 0]
-            
         return enc
     
     def get_graph_features(self, coord_data):

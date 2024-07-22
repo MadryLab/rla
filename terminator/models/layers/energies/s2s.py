@@ -14,7 +14,7 @@ from terminator.models.layers.utils import (cat_edge_endpoints, cat_neighbors_no
                                             merge_duplicate_pairE, all_comb_to_per_node, all_comb_to_per_node_transpose, 
                                             per_node_to_all_comb, sync_inds_shape)
 import time
-from torch_scatter import scatter_mean
+# from torch_scatter import scatter_mean
 from torch.nn.utils.rnn import pad_sequence
 from terminator.models.layers.transformer import GraphTransformer
 # pylint: disable=no-member, not-callable
@@ -22,7 +22,7 @@ from terminator.models.layers.transformer import GraphTransformer
 def merge_dups(h_E, inv_mapping):
     orig_shape = h_E.shape
     flattened = h_E.flatten(1, 2)
-    condensed = scatter_mean(flattened, inv_mapping, dim=1)
+    # condensed = scatter_mean(flattened, inv_mapping, dim=1)
     expanded_inv_mapping = inv_mapping.unsqueeze(-1).expand((-1, -1, orig_shape[-1]))
     rescattered = torch.gather(flattened, dim=1, index=expanded_inv_mapping)
     rescattered = rescattered.unflatten(1, (orig_shape[1], orig_shape[2]))
@@ -30,7 +30,9 @@ def merge_dups(h_E, inv_mapping):
 
 def get_merge_dups_mask(E_idx):
     N = E_idx.shape[1]
-    tens_place = torch.arange(N).cuda().unsqueeze(0).unsqueeze(-1)
+    tens_place = torch.arange(N).unsqueeze(0).unsqueeze(-1)
+    if E_idx.device.type != 'cpu':
+        tens_place = tens_place.cuda()
     # tens_place = tens_place.unsqueeze(0).unsqueeze(-1)
     min_val = torch.minimum(E_idx, tens_place)
     max_val = torch.maximum(E_idx, tens_place)

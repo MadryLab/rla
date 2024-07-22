@@ -137,10 +137,10 @@ class ProteinFeatures(nn.Module):
             self.nodes_nonlinear = nn.ReLU(inplace=False)
             self.edges_nonlinear = nn.ReLU(inplace=False)
 
-    def _dist(self, X, mask, eps=1E-6):
+    def _dist(self, X, mask, eps=1E-6, chain_ids=None):
         """ Pairwise euclidean distances """
         # Convolutional network on NCHW
-        mask_2D, D_neighbors, E_idx = extract_knn(X, mask, eps, self.top_k)
+        mask_2D, D_neighbors, E_idx = extract_knn(X, mask, eps, self.top_k, chain_ids=chain_ids)
         mask_neighbors = gather_edges(mask_2D.unsqueeze(-1), E_idx)
         return D_neighbors, E_idx, mask_neighbors
 
@@ -569,7 +569,7 @@ class MultiChainProteinFeatures(ProteinFeatures):
         """
         # Build k-Nearest Neighbors graph
         X_ca = X[:, :, 1, :]
-        D_neighbors, E_idx, mask_neighbors = self._dist(X_ca, mask)
+        D_neighbors, E_idx, mask_neighbors = self._dist(X_ca, mask, chain_ids=chain_dict['ids'])
         # Pairwise features
         if self.features_options.find("residue_local") > -1:
             AD_features, O_features = self._orientations_coarse(X, E_idx, frame="residue")

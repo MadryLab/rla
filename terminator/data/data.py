@@ -13,8 +13,6 @@ import sys
 import numpy as np
 import torch
 import torch.nn.functional as F
-import torch_cluster
-import torch_geometric
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset, Sampler
 from tqdm import tqdm
@@ -122,127 +120,6 @@ def _positional_embeddings(edge_index, num_embeddings=16, dev='cpu'):
     angles = d.unsqueeze(-1) * frequency
     E = torch.cat((torch.cos(angles), torch.sin(angles)), -1)
     return E
-
-
-def _orientations(X_ca):
-    """ Compute forward and backward vectors per residue.
-
-    Args
-    ----
-    X_ca : torch.FloatTensor
-        Tensor specifying atomic backbone coordinates for CA atoms.
-        Shape: num_res x 3
-
-    Returns
-    -------
-    torch.FloatTensor
-        Pairs of forward, backward vectors per residue.
-        Shape: num_res x 2 x 3
-    """
-    # From https://github.com/drorlab/gvp-pytorch
-    forward = _normalize(X_ca[1:] - X_ca[:-1])
-    backward = _normalize(X_ca[:-1] - X_ca[1:])
-    forward = F.pad(forward, [0, 0, 0, 1])
-    backward = F.pad(backward, [0, 0, 1, 0])
-    return torch.cat([forward.unsqueeze(-2), backward.unsqueeze(-2)], -2)
-
-
-def _sidechains(X):
-    """ Compute vectors pointing in the approximate direction of the sidechain.
-
-    Args
-    ----
-    X : torch.FloatTensor
-        Tensor specifying atomic backbone coordinates.
-        Shape: num_res x 4 x 3
-
-    Returns
-    -------
-    vec : torch.FloatTensor
-        Sidechain vectors.
-        Shape: num_res x 3
-    """
-    # From https://github.com/drorlab/gvp-pytorch
-    n, origin, c = X[:, 0], X[:, 1], X[:, 2]
-    c, n = _normalize(c - origin), _normalize(n - origin)
-    bisector = _normalize(c + n)
-    perp = _normalize(torch.cross(c, n))
-    vec = -bisector * math.sqrt(1 / 3) - perp * math.sqrt(2 / 3)
-    return vec
-
-
-def _jing_featurize(protein, dev='cpu'):
-    """ Featurize individual proteins for use in torch_geometric Data objects,
-    as done in https://github.com/drorlab/gvp-pytorch
-
-    Args
-    ----
-    protein : dict
-        Dictionary of protein features
-
-        - :code:`name` - PDB ID of the protein
-        - :code:`coords` - list of dicts specifying backbone atom coordinates
-        in the format of that outputted by :code:`parseCoords.py`
-        - :code:`seq` - protein sequence
-        - :code:`chain_idx` - an integer per residue such that each unique integer represents a unique chain
-
-    Returns
-    -------
-    torch_geometric.data.Data
-        Data object containing
-        - :code:`x` - CA atomic coordinates
-        - :code:`seq` - sequence of protein
-        - :code:`name` - PDB ID of protein
-        - :code:`node_s` - Node scalar features
-        - :code:`node_v` - Node vector features
-        - :code:`edge_s` - Edge scalar features
-        - :code:`edge_v` - Edge vector features
-        - :code:`edge_index` - Sparse representation of edge
-        - :code:`mask` - Residue mask specifying residues with incomplete coordinate sets
-    """
-    name = protein['name']
-    with torch.no_grad():
-        coords = torch.as_tensor(protein['coords'], device=dev, dtype=torch.float32)
-        seq = torch.as_tensor(protein['seq'], device=dev, dtype=torch.long)
-
-        mask = torch.isfinite(coords.sum(dim=(1, 2)))
-        coords[~mask] = np.inf
-
-        X_ca = coords[:, 1]
-        edge_index = torch_cluster.knn_graph(X_ca, k=30, loop=True)  # TODO: make param
-
-        pos_embeddings = _positional_embeddings(edge_index)
-        # generate mask for interchain interactions
-        pos_chain = (protein['chain_idx'][edge_index.view(-1)]).view(2, -1)
-        pos_mask = (pos_chain[0] != pos_chain[1])
-        # zero out all interchain positional embeddings
-        pos_embeddings = pos_mask.unsqueeze(-1) * pos_embeddings
-
-        E_vectors = X_ca[edge_index[0]] - X_ca[edge_index[1]]
-        rbf = _rbf(E_vectors.norm(dim=-1), D_count=16, device=dev)  # TODO: make param
-
-        dihedrals = _dihedrals(coords)
-        orientations = _orientations(X_ca)
-        sidechains = _sidechains(coords)
-
-        node_s = dihedrals
-        node_v = torch.cat([orientations, sidechains.unsqueeze(-2)], dim=-2)
-        edge_s = torch.cat([rbf, pos_embeddings], dim=-1)
-        edge_v = _normalize(E_vectors).unsqueeze(-2)
-
-        node_s, node_v, edge_s, edge_v = map(torch.nan_to_num, (node_s, node_v, edge_s, edge_v))
-
-    data = torch_geometric.data.Data(x=X_ca,
-                                     seq=seq,
-                                     name=name,
-                                     node_s=node_s,
-                                     node_v=node_v,
-                                     edge_s=edge_s,
-                                     edge_v=edge_v,
-                                     edge_index=edge_index,
-                                     mask=mask)
-    return data
-
 
 # Ingraham featurization functions
 
@@ -386,74 +263,6 @@ def _orientations_coarse(X, edge_index, eps=1e-6):
     # print(Q.sum(), dU.sum(), R.sum())
     return AD_features, O_features
 
-def _ingraham_geometric_featurize(protein, dev='cpu'):
-    """ Featurize individual proteins for use in torch_geometric Data objects,
-    as done in https://github.com/drorlab/gvp-pytorch
-
-    Args
-    ----
-    protein : dict
-        Dictionary of protein features
-
-        - :code:`name` - PDB ID of the protein
-        - :code:`coords` - list of dicts specifying backbone atom coordinates
-        in the format of that outputted by :code:`parseCoords.py`
-        - :code:`seq` - protein sequence
-        - :code:`chain_idx` - an integer per residue such that each unique integer represents a unique chain
-
-    Returns
-    -------
-    torch_geometric.data.Data
-        Data object containing
-        - :code:`x` - CA atomic coordinates
-        - :code:`seq` - sequence of protein
-        - :code:`name` - PDB ID of protein
-        - :code:`node_s` - Node scalar features
-        - :code:`node_v` - Node vector features
-        - :code:`edge_s` - Edge scalar features
-        - :code:`edge_v` - Edge vector features
-        - :code:`edge_index` - Sparse representation of edge
-        - :code:`mask` - Residue mask specifying residues with incomplete coordinate sets
-    """
-    name = protein['name']
-    with torch.no_grad():
-        coords = torch.as_tensor(protein['coords'], device=dev, dtype=torch.float32)
-        seq = torch.as_tensor(protein['seq'], device=dev, dtype=torch.long)
-
-        mask = torch.isfinite(coords.sum(dim=(1, 2)))
-        coords[~mask] = np.inf
-
-        X_ca = coords[:, 1]
-        edge_index = torch_cluster.knn_graph(X_ca, k=30, loop=True)  # TODO: make param
-
-        pos_embeddings = _positional_embeddings(edge_index)
-        # generate mask for interchain interactions
-        pos_chain = (protein['chain_idx'][edge_index.view(-1)]).view(2, -1)
-        pos_mask = (pos_chain[0] != pos_chain[1])
-        # zero out all interchain positional embeddings
-        pos_embeddings = pos_mask.unsqueeze(-1) * pos_embeddings
-
-        E_vectors = X_ca[edge_index[0]] - X_ca[edge_index[1]]
-        rbf = _rbf(E_vectors.norm(dim=-1), D_count=16, device=dev)  # TODO: make param
-
-        dihedrals = _dihedrals(coords)
-        _, orientations = _orientations_coarse(X_ca, edge_index)
-
-        node_features = dihedrals
-        edge_features = torch.cat([pos_embeddings, rbf, orientations], dim=-1)
-
-        node_features, edge_features, = map(torch.nan_to_num, (node_features, edge_features))
-
-    data = torch_geometric.data.Data(x=X_ca,
-                                     seq=seq,
-                                     name=name,
-                                     node_features=node_features,
-                                     edge_features=edge_features,
-                                     edge_index=edge_index,
-                                     mask=mask)
-    return data
-
-
 # Batching functions
 
 
@@ -495,8 +304,6 @@ def _package(batch, k_neighbors=30):
     seqs = []
     ids = []
     chain_lens = []
-    gvp_data = []
-    geometric_data = []
 
     sortcery_seqs = []
     sortcery_nrgs = []
@@ -520,21 +327,7 @@ def _package(batch, k_neighbors=30):
         for i, c_len in enumerate(data['chain_lens']):
             chain_idx.append(torch.ones(c_len) * i)
         chain_idx = torch.cat(chain_idx, dim=0)
-        gvp_data.append(
-            _jing_featurize({
-                'name': data['pdb'],
-                'coords': data['coords'],
-                'seq': data['sequence'],
-                'chain_idx': chain_idx
-            }))
-        geometric_data.append(
-            _ingraham_geometric_featurize({
-                'name': data['pdb'],
-                'coords': data['coords'],
-                'seq': data['sequence'],
-                'chain_idx': chain_idx
-            }))
-        
+
 
 
     # we can pad these using standard pad_sequence
@@ -564,10 +357,8 @@ def _package(batch, k_neighbors=30):
         'seqs': seqs,
         'ids': ids,
         'chain_idx': chain_idx,
-        'gvp_data': gvp_data,
         'sortcery_seqs': sortcery_seqs,
         'sortcery_nrgs': sortcery_nrgs,
-        'geometric_data': geometric_data,
     }
 
 

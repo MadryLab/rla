@@ -8,7 +8,6 @@ import open_clip
 import torch
 from src.clip_model import ProteinCLIP
 
-
 def save_model(model, path, run_metadata):
     torch.save({
         'state_dict': model.state_dict(),
@@ -33,15 +32,16 @@ def _unwrap_ddp_model(state_dict):
 
 def load_model(path, esm_arch, device, coordinator_checkpoint=None, model=None, load_state_dict=True):
     print("loading state dict from", path)
-    ckpt = torch.load(path)
+    ckpt = torch.load(path, map_location=torch.device(device))
     if model is None: # build based on path
         print("building model based on path")
         model_building_args = ckpt['run_metadata']['model_building_args']
         model = create_clip_model(esm_arch, model_building_args, device=device, coordinator_checkpoint=coordinator_checkpoint)
     if load_state_dict:
         state_dict = _unwrap_ddp_model(ckpt['state_dict'])
+        if 'text_model.embeddings.position_ids' not in state_dict.keys():
+            state_dict['text_model.embeddings.position_ids'] = torch.arange(1026).unsqueeze(0).to(device)
         model.load_state_dict(state_dict)
-    print(ckpt['run_metadata'])
     return model
 
 def create_clip_model(esm_arch, model_building_args, device, coordinator_checkpoint=None):
@@ -50,11 +50,16 @@ def create_clip_model(esm_arch, model_building_args, device, coordinator_checkpo
     model = ProteinCLIP(esm_arch=esm_arch, 
                         gnn_checkpoint=model_building_args['gnn_checkpoint'],
                         terminator_hparams=model_building_args['terminator_hparams'],
+                        projection_dim=model_building_args.get('projection_dim', 640),
                         self_supervised=model_building_args['self_supervised'],
                         freeze_llm=model_building_args.get('freeze_llm', False),
+                        use_text_proj=model_building_args.get('use_text_proj', False),
                         lm_head_text=model_building_args.get('language_head', False),
-                        lm_head_type=model_building_args.get('language_head_type', 'MLP')
+                        lm_head_type=model_building_args.get('language_head_type', 'MLP'),
+                        device=device
                        )
+    print('args: ')
+    print(model_building_args.get('projection_dim', 640), model_building_args.get('use_text_proj', False))
     model = model.to(memory_format=ch.channels_last)
     model = model.to(device)
     

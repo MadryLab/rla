@@ -41,6 +41,7 @@ def load_model(path, esm_arch, device, coordinator_checkpoint=None, model=None, 
         state_dict = _unwrap_ddp_model(ckpt['state_dict'])
         if 'text_model.embeddings.position_ids' not in state_dict.keys():
             state_dict['text_model.embeddings.position_ids'] = torch.arange(1026).unsqueeze(0).to(device)
+        # del state_dict['text_model.embeddings.position_ids']
         model.load_state_dict(state_dict)
     return model
 
@@ -50,16 +51,16 @@ def create_clip_model(esm_arch, model_building_args, device, coordinator_checkpo
     model = ProteinCLIP(esm_arch=esm_arch, 
                         gnn_checkpoint=model_building_args['gnn_checkpoint'],
                         terminator_hparams=model_building_args['terminator_hparams'],
-                        projection_dim=model_building_args.get('projection_dim', 640),
+                        projection_dim=model_building_args.get('projection_dim', 320),
                         self_supervised=model_building_args['self_supervised'],
                         freeze_llm=model_building_args.get('freeze_llm', False),
-                        use_text_proj=model_building_args.get('use_text_proj', False),
+                        use_text_proj=model_building_args.get('use_text_proj', True),
                         lm_head_text=model_building_args.get('language_head', False),
                         lm_head_type=model_building_args.get('language_head_type', 'MLP'),
                         device=device
                        )
     print('args: ')
-    print(model_building_args.get('projection_dim', 640), model_building_args.get('use_text_proj', False))
+    print(model_building_args.get('projection_dim', 320), model_building_args.get('use_text_proj', True))
     model = model.to(memory_format=ch.channels_last)
     model = model.to(device)
     

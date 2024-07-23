@@ -214,7 +214,8 @@ def postprocess(batch, shuffle_chains=True,
         'seq_to_coords': seq_to_coords.astype(int), # does not count placeholders
         'pdb_id': batch['pdb_id'],
     }
-    
+    if 'chain_lens' not in batch.keys():
+        batch['chain_lens'] = None
     coords_output = {
         'coords': unwrap(coords_dict['coords']),
         'res_info': list(unwrap(coords_dict['base_chain_labels'])),
@@ -222,8 +223,7 @@ def postprocess(batch, shuffle_chains=True,
         'coords_loss_mask': coords_loss_mask, # does not count placeholders
         'coords_to_seq': coords_to_seq.astype(int), # does not count placeholders
         'chain_dict': parse_chain_ends(coords_seq_lens, type=chain_ends_type),
-#         'chain_lens': batch['chain_lens']
-        
+        'chain_lens': batch['chain_lens']
     }
 
     if num_mutations > 0:

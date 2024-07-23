@@ -53,14 +53,11 @@ class NodeTransformerLayer(nn.Module):
         self.attention = NeighborAttention(num_hidden, num_in, num_heads)
         self.dense = PositionWiseFeedForward(num_hidden, num_hidden * 4)
 
-    def forward(self, h_V, h_E, mask_V=None, mask_attend=None, update=True):
+    def forward(self, h_V, h_E, mask_V=None, mask_attend=None):
         """ Parallel computation of full transformer layer """
         # Self-attention
         dh = self.attention(h_V, h_E, mask_attend)
-        if update:
-            h_V = self.norm[0](h_V + self.dropout(dh))
-        else:
-            h_V = self.norm[0](self.dropout(dh))
+        h_V = self.norm[0](h_V + self.dropout(dh))
 
         # Position-wise feedforward
         dh = self.dense(h_V)

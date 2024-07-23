@@ -9,6 +9,7 @@ TEXT_EMB_DIMS = {
     '/data1/groups/keating_madry/huggingface/esm2_t30_150M_UR50D': 640,
     'facebook/esm2_t6_8M_UR50D': 320,
     '/home/fosterb/rla/esm_model_150': 640,
+    '/data1/groups/keatinglab/rla_shared/esm_model_150': 640,
 }
 
 def gelu(x):
@@ -141,14 +142,14 @@ class ProteinCLIP(nn.Module):
             enc = self.get_avg(hidden_states, text_inp['attention_mask'])
             #enc = hidden_states[:, 0]
             
-        if self.use_text_proj:
-            if self.freeze_text_proj:
-                with torch.no_grad():
-                    text_feats = self.text_projection(enc)
-            else:
+        if self.freeze_text_proj:
+            with torch.no_grad():
                 text_feats = self.text_projection(enc)
         else:
-            text_feats = enc
+            if self.use_text_proj:
+                text_feats = self.text_projection(enc)
+            else:
+                text_feats = enc
         return text_feats
     
     def get_text_features_no_proj(self, text_inp):

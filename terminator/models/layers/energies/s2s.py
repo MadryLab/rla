@@ -24,9 +24,13 @@ def merge_dups(h_E, inv_mapping):
     flattened = h_E.flatten(1, 2)
     # condensed = scatter_mean(flattened, inv_mapping, dim=1)
     expanded_inv_mapping = inv_mapping.unsqueeze(-1).expand((-1, -1, orig_shape[-1]))
+    # rescattered = torch.gather(condensed, dim=1, index=expanded_inv_mapping)
     rescattered = torch.gather(flattened, dim=1, index=expanded_inv_mapping)
     rescattered = rescattered.unflatten(1, (orig_shape[1], orig_shape[2]))
     return rescattered
+
+def no_op_merge_dups(h_E, inv_mapping):
+    return h_E
 
 def get_merge_dups_mask(E_idx):
     N = E_idx.shape[1]
@@ -253,9 +257,11 @@ class PairEnergies(nn.Module):
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
-        
-        self.merge_dup_fn = merge_dups
-       
+
+        if hparams.get('merge_dups', True):
+            self.merge_dup_fn = merge_dups
+        else:
+            self.merge_dup_fn = no_op_merge_dups
 
     def forward(self, V_embed, E_embed, X, x_mask, chain_idx):
         """ Create kNN etab from backbone and TERM features, then project to proper output dimensionality.

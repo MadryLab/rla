@@ -13,7 +13,7 @@ Model weights and data are available to download [here](https://www.dropbox.com/
 
 Example inference data are provided in the [example_data](example_data) folder. 
 
-To package a .pdf file into the WebDataset format that is most easily read by RLA, follow [this example](example_notebooks/example_data.ipynb).
+To package a .pdb file into the WebDataset format that is most easily read by RLA, use write_wds.ipynb.
 
 ## Inference
 

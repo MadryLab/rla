@@ -1,0 +1,1 @@
+{"finetune_lr": 3e-5, "finetune": true, "train_batch_size": null, "shuffle": false, "semi_shuffle": true, "sort_data": false, "max_term_res": null, "max_seq_tokens": 6000, "patience": 15, "loss_config": {"nlcpl": 1}}

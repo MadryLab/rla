@@ -29,7 +29,7 @@ def parseCoords(filename, save=True):
         a '_' separated string (i.e. chainID_residueNumber) for each residue in the structure
     """
     chain_dict = {}
-    from_raw_pdb = len(os.path.splitext(os.path.splitext(filename)[0])[1]) == 0
+    from_raw_pdb = filename.find('.red') == -1
     VALID_ELEMENTS = ['N', 'CA', 'C', 'O', 'OXT']
     VALID_RECORD_TYPES = ['ATOM', 'HETATM']
     with open(filename, 'r') as fp:

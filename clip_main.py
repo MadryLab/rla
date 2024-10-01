@@ -54,8 +54,8 @@ Section("training", "training arguments").params(
     max_coord_len=Param(int, 'max coords length', default=2000),
     freeze_llm=Param(int, 'whether to freeze language model', default=0),
     freeze_text_proj=Param(int, 'whether to freeze language model projection', default=0),
-    use_text_proj=Param(int, 'whether to use text projection layer', default=0),
-    projection_dim=Param(int, 'dimension of projection layer', default=640),
+    use_text_proj=Param(int, 'whether to use text projection layer', default=1),
+    projection_dim=Param(int, 'dimension of projection layer', default=320),
     finetune_from=Param(str, 'finetune from a checkpoint', default=''),
     # mutation parameters
     num_mutations=Param(int, 'how many mutations to add for indiv mutation loss', default=-1),
@@ -302,7 +302,7 @@ def main(gpu, config_args, exp_name, logpath):
         model = create_clip_model(args.arch, model_building_args, device=training_device)
     else:
         print("finetuning from", args.finetune_from)
-        model = load_model(args.finetune_from, args.arch, device=training_device)
+        model = load_model(args.finetune_from, device=training_device)
 
     tokenizer = EsmTokenizer.from_pretrained(args.arch)
     # require grad out unused params ---> this is not enough for distributed training!

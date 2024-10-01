@@ -41,7 +41,7 @@ def load_model(path, esm_arch, device, coordinator_checkpoint=None, model=None, 
         state_dict = _unwrap_ddp_model(ckpt['state_dict'])
         if 'text_model.embeddings.position_ids' not in state_dict.keys():
             state_dict['text_model.embeddings.position_ids'] = torch.arange(1026).unsqueeze(0).to(device)
-        del state_dict['text_model.embeddings.position_ids']
+        # del state_dict['text_model.embeddings.position_ids']
         model.load_state_dict(state_dict)
     return model
 

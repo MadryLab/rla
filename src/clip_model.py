@@ -4,14 +4,6 @@ from terminator.models.TERMinator import TERMinator
 from transformers import EsmModel
 import math
 
-TEXT_EMB_DIMS = {
-    'facebook/esm2_t30_150M_UR50D': 640,
-    '/data1/groups/keating_madry/huggingface/esm2_t30_150M_UR50D': 640,
-    'facebook/esm2_t6_8M_UR50D': 320,
-    '/home/fosterb/rla/esm_model_150': 640,
-    '/data1/groups/keatinglab/rla_shared/esm_model_150': 640,
-}
-
 def gelu(x):
     """
     This is the gelu implementation from the original ESM repo. Using F.gelu yields subtly wrong results.
@@ -79,7 +71,7 @@ class ProteinCLIP(nn.Module):
         self.esm_arch = esm_arch
         self.terminator_hparams = terminator_hparams
         gnn_emb_dim = terminator_hparams['energies_hidden_dim']
-        text_emb_dim = TEXT_EMB_DIMS[esm_arch]    
+        text_emb_dim = 640  
         self.text_model = EsmModel.from_pretrained(esm_arch) 
 
         self.gnn_model = TERMinator(hparams=terminator_hparams, device=device)

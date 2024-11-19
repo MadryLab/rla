@@ -3,8 +3,6 @@ import torch as ch
 import numpy as np
 from torch.optim import SGD, AdamW
 from torch.optim.lr_scheduler import LambdaLR
-import torchvision.models as torch_models
-import open_clip
 import torch
 from src.clip_model import ProteinCLIP
 
